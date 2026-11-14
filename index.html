@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iran Shadow Fleet Tracker</title>
+<meta name="description" content="An open-source tracker of tankers the United States has sanctioned for moving Iranian oil, with a map of where they are heard on AIS.">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--bg:#f6f4ef;--panel:#fff;--ink:#16202a;--muted:#5d6975;--line:#dcd8cf;--accent:#0f5c7a;--fresh:#0f7a5c;--stale:#c07a12;--old:#8a8f96;--bad:#a8322a}
+@media (prefers-color-scheme:dark){:root{--bg:#10161c;--panel:#182129;--ink:#e8ecef;--muted:#9aa6b1;--line:#2a3640;--accent:#5fb6d6;--fresh:#4fc79f;--stale:#e0a64a;--old:#7c8791;--bad:#e2776e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1120px;margin:0 auto;padding:32px 20px 64px;display:flex;flex-direction:column;gap:36px}
+h1{font:400 clamp(30px,5vw,44px)/1.1 Georgia,"Times New Roman",serif;margin:0 0 12px}
+h2{font-size:19px;margin:0 0 10px}
+p{margin:0 0 8px;max-width:72ch}
+a{color:var(--accent)}
+.kicker{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.take{font-size:19px}
+.muted{color:var(--muted);font-size:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+.num{font:400 34px/1.1 Georgia,serif;font-variant-numeric:tabular-nums;min-height:38px}
+.lab{color:var(--muted);font-size:13px;margin-top:4px}
+#map{height:min(62vh,540px);min-height:340px;border:1px solid var(--line);border-radius:8px;background:var(--panel);z-index:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted);margin-top:8px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.bar{display:grid;grid-template-columns:minmax(90px,42%) 1fr 2.5ch;gap:8px;align-items:center;font-size:13px;margin:5px 0}
+.bar span:first-child{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fill{height:12px;border-radius:2px;background:var(--accent);min-width:2px}
+.bar b{font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:8px}
+select{font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 12px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;white-space:nowrap}
+.nw{white-space:nowrap;font-variant-numeric:tabular-nums}
+.act{min-width:220px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;border:1px solid currentColor;white-space:nowrap}
+.fresh{color:var(--fresh)}.stale{color:var(--stale)}.old{color:var(--old)}
+ul.plain{margin:0;padding-left:1.2em;max-width:76ch}
+ul.plain li{margin:4px 0}
+footer{color:var(--muted);font-size:13px}
+.leaflet-popup-content{font:13px/1.45 system-ui,sans-serif;margin:10px 12px}
+.leaflet-popup-content b{font-size:14px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="kicker">Open-source intelligence project</div>
+  <h1>Iran Shadow Fleet Tracker</h1>
+  <p class="take" id="take"></p>
+  <p class="muted">Every entry reflects a U.S. government designation, not an independent finding. Flags and owners are as stated on the designation date and change often, which is the point of tracking them.</p>
+</header>
+
+<section class="tiles" aria-label="Headline figures">
+  <div class="card"><div class="num" id="n-vessels"></div><div class="lab">Sanctioned vessels on the watchlist</div></div>
+  <div class="card"><div class="num" id="n-heard"></div><div class="lab">Heard on AIS at least once</div></div>
+  <div class="card"><div class="num" id="n-recent"></div><div class="lab">Heard in the last 24 hours</div></div>
+  <div class="card"><div class="num" id="n-share"></div><div class="lab" id="share-lab">Held through the top two owner jurisdictions</div></div>
+</section>
+
+<section aria-labelledby="map-h">
+  <h2 id="map-h">Where the vessels are heard</h2>
+  <p class="muted" id="map-status">Loading positions.</p>
+  <div id="map" role="application" aria-label="Map of the last position heard from each watchlist vessel, with its track"></div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--fresh)"></i>Heard in the last 24 hours</span>
+    <span><i class="dot" style="background:var(--stale)"></i>Heard in the last 7 days</span>
+    <span><i class="dot" style="background:var(--old)"></i>Last heard more than 7 days ago</span>
+    <span>Dashed line: more than 24 hours of silence between two points</span>
+  </div>
+  <p class="muted" style="margin-top:8px">Silence is not proof of anything. The free feed relies on shore stations, so a ship far from land is not heard even with its transponder on, and positions are what the ship chose to broadcast.</p>
+</section>
+
+<section class="charts" aria-label="Breakdowns">
+  <div class="card"><h2>Where the owning companies sit</h2><div id="c-owner"></div></div>
+  <div class="card"><h2>Flag at designation</h2><div id="c-flag"></div></div>
+  <div class="card"><h2>What the ships carry</h2><div id="c-class"></div></div>
+</section>
+
+<section aria-labelledby="wl-h">
+  <div class="row"><h2 id="wl-h">Watchlist</h2><select id="pick" aria-label="Vessel class"></select></div>
+  <p class="muted">The IMO number is the one identifier that survives renaming and reflagging. Each IMO links to the vessel's public AIS page. "Broadcast name" is what the ship itself is transmitting, which can differ from the name it was sanctioned under.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Vessel</th><th>IMO</th><th>Last heard</th><th>Broadcast name</th><th>Stated destination</th><th>Flag</th><th>Class</th><th>Owner or manager</th><th>Jurisdiction</th><th>Alleged activity</th><th>Designated</th><th>Source</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+</section>
+
+<section aria-labelledby="dl-h">
+  <h2 id="dl-h">Removed from the list</h2>
+  <p class="muted">Treasury delisted these tankers on 8 October 2026 after they were sold out of the fleet. Delistings show what an exit from the shadow fleet looks like.</p>
+  <ul class="plain" id="delisted"></ul>
+</section>
+
+<section aria-labelledby="m-h">
+  <h2 id="m-h">Method</h2>
+  <ul class="plain">
+    <li>The watchlist is transcribed from U.S. Treasury and State Department releases. Every IMO number was checked against its check digit.</li>
+    <li>A listener connects to the free aisstream.io AIS feed for about 25 minutes every two hours. It recognises a watchlist vessel by the IMO number in its broadcast, then follows that vessel's position reports.</li>
+    <li>Because the listener runs about a fifth of the time, short gaps in a track belong to the listener. Only silences longer than 24 hours are drawn as dashed lines.</li>
+    <li>Signs worth logging by hand: a deeper draught after a silent stretch (loaded), two tankers side by side at sea, a new name or flag, and a radio identity whose country prefix does not match the claimed flag.</li>
+  </ul>
+</section>
+
+<section aria-labelledby="s-h">
+  <h2 id="s-h">Sources</h2>
+  <ul class="plain" id="sources"></ul>
+</section>
+
+<footer>Built by Xavier Davis. Vessel positions from aisstream.io. Map data from OpenStreetMap contributors. <span id="built"></span></footer>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(async function () {
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, text, cls) => { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
+  const get = async (path) => { const r = await fetch(path + '?v=' + Date.now()); if (!r.ok) throw new Error(path + ' ' + r.status); return r.json(); };
+  const day = (s) => s ? new Date(s).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'}) : '';
+  const stamp = (s) => s ? new Date(s).toLocaleString('en-GB', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC'}) + ' UTC' : '';
+  const safeUrl = (u) => (/^https:\/\//.test(u || '') ? u : null);
+  const link = (text, href) => { const a = el('a', text); const u = safeUrl(href); if (u) { a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer'; } return a; };
+  const hoursSince = (s) => (Date.now() - new Date(s).getTime()) / 36e5;
+  const ago = (s) => { const h = hoursSince(s); return h < 1 ? 'under an hour ago' : h < 48 ? Math.round(h) + ' hours ago' : Math.round(h / 24) + ' days ago'; };
+  const band = (s) => { const h = hoursSince(s); return h <= 24 ? 'fresh' : h <= 168 ? 'stale' : 'old'; };
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  let vessels, sources, pos;
+  try {
+    [vessels, sources] = await Promise.all([get('data/vessels.json'), get('data/sources.json')]);
+  } catch (e) {
+    $('take').textContent = 'The watchlist could not be loaded.';
+    return;
+  }
+  try { pos = await get('data/positions.json'); } catch (e) { pos = {vessels: {}, runs: []}; }
+  const heard = pos.vessels || {};
+  const live = vessels.filter((v) => v.status === 'Designated');
+  const srcUrl = new Map(sources.map((s) => [s.source_id, s.url]));
+
+  // Headline figures
+  const tally = (field) => {
+    const m = new Map();
+    for (const v of live) m.set(v[field], (m.get(v[field]) || 0) + 1);
+    return [...m].map(([k, n]) => ({k, n})).sort((a, b) => b.n - a.n || String(a.k).localeCompare(String(b.k)));
+  };
+  const owners = tally('owner_jurisdiction');
+  const stated = (s) => s !== 'Unknown' && s !== 'Not stated';
+  const flags = new Set(live.map((v) => v.flag).filter(stated)).size;
+  const top2 = owners.slice(0, 2);
+  const top2n = top2.reduce((a, o) => a + o.n, 0);
+  const tracked = live.filter((v) => heard[v.imo] && (heard[v.imo].track || []).length);
+  const recent = tracked.filter((v) => hoursSince(heard[v.imo].last_heard) <= 24);
+  $('n-vessels').textContent = live.length;
+  $('n-heard').textContent = tracked.length;
+  $('n-recent').textContent = recent.length;
+  $('n-share').textContent = Math.round(top2n / live.length * 100) + '%';
+  $('share-lab').textContent = 'Held through ' + top2.map((o) => o.k).join(' or ') + ' companies';
+  $('take').textContent = 'The ' + live.length + ' tankers on this watchlist sail under ' + flags + ' different flags, yet ' + top2n +
+    ' of them are held through companies in just two jurisdictions: ' + top2.map((o) => o.k).join(' and ') + '.';
+
+  // Charts
+  const bars = (id, rows) => {
+    const max = Math.max(...rows.map((r) => r.n), 1);
+    $(id).replaceChildren(...rows.map((r) => {
+      const row = el('div', null, 'bar');
+      const track = el('div');
+      const fill = el('div', null, 'fill');
+      fill.style.width = (r.n / max * 100) + '%';
+      track.append(fill);
+      row.append(el('span', r.k), track, el('b', r.n));
+      row.title = r.k + ': ' + r.n + (r.n === 1 ? ' vessel' : ' vessels');
+      return row;
+    }));
+  };
+  bars('c-owner', owners);
+  bars('c-flag', tally('flag'));
+  const classes = tally('vessel_class');
+  bars('c-class', classes);
+
+  // Table
+  const pick = $('pick');
+  pick.replaceChildren(new Option('All vessel classes', ''), ...classes.map((c) => new Option(c.k)));
+  const drawRows = () => {
+    const want = pick.value;
+    $('rows').replaceChildren(...live.filter((v) => !want || v.vessel_class === want).map((v) => {
+      const h = heard[v.imo] || {};
+      const tr = el('tr');
+      const imo = el('td', null, 'nw');
+      imo.append(link(v.imo, 'https://www.marinetraffic.com/en/ais/details/ships/imo:' + encodeURIComponent(v.imo)));
+      const last = el('td', null, 'nw');
+      if (h.last_heard) { const p = el('span', ago(h.last_heard), 'pill ' + band(h.last_heard)); p.title = stamp(h.last_heard); last.append(p); }
+      else last.append(el('span', 'Not heard yet', 'muted'));
+      const src = el('td', null, 'nw');
+      src.append(link(v.agency, srcUrl.get(v.source_id)));
+      tr.append(el('td', v.name, 'nw'), imo, last, el('td', h.name_broadcast || ''), el('td', h.destination || ''), el('td', v.flag), el('td', v.vessel_class),
+        el('td', v.owner), el('td', v.owner_jurisdiction), el('td', v.activity, 'act'), el('td', day(v.designated), 'nw'), src);
+      return tr;
+    }));
+  };
+  pick.addEventListener('change', drawRows);
+  drawRows();
+
+  $('delisted').replaceChildren(...vessels.filter((v) => v.status === 'Delisted').map((v) => el('li', v.name + ' (IMO ' + v.imo + '): ' + v.activity)));
+  $('sources').replaceChildren(...sources.map((s) => { const li = el('li'); li.append(link(s.title, s.url), document.createTextNode(' (' + s.publisher + ', ' + day(s.date) + ')')); return li; }));
+  if (pos.generated) $('built').textContent = 'Positions updated ' + stamp(pos.generated) + '.';
+
+  // Map
+  const runs = pos.runs || [];
+  const lastRun = runs[runs.length - 1];
+  $('map-status').textContent = !lastRun
+    ? 'No listening run has finished yet. Positions appear here after the first run.'
+    : tracked.length
+      ? tracked.length + ' of ' + live.length + ' vessels have been heard so far. Last listening run ' + stamp(lastRun.started) + ' heard ' + lastRun.vessels_heard + '.'
+      : 'The listener has run ' + runs.length + (runs.length === 1 ? ' time' : ' times') + ' and has not heard a watchlist vessel yet. Last run ' + stamp(lastRun.started) + '.';
+  if (!window.L) { $('map').textContent = 'The map library could not be loaded.'; return; }
+  const map = L.map('map', {worldCopyJump: true, scrollWheelZoom: false}).setView([22, 62], 4);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 12, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
+  const color = {fresh: css('--fresh'), stale: css('--stale'), old: css('--old')};
+  const bounds = [];
+  for (const v of tracked) {
+    const h = heard[v.imo];
+    const track = h.track;
+    const c = color[band(h.last_heard)];
+    for (let i = 1; i < track.length; i++) {
+      const a = track[i - 1], b = track[i];
+      if (Math.abs(a.lon - b.lon) > 180) continue; // do not draw across the date line
+      const silent = (new Date(b.t) - new Date(a.t)) / 36e5 > 24;
+      L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {color: c, weight: 2, opacity: silent ? 0.55 : 0.85, dashArray: silent ? '5 7' : null}).addTo(map);
+    }
+    const p = track[track.length - 1];
+    bounds.push([p.lat, p.lon]);
+    const box = el('div');
+    box.append(el('b', v.name), el('div', 'IMO ' + v.imo + (h.mmsi ? ', MMSI ' + h.mmsi : '')), el('div', 'Last heard ' + stamp(h.last_heard)));
+    if (h.name_broadcast && h.name_broadcast !== v.name) box.append(el('div', 'Broadcasting as ' + h.name_broadcast));
+    if (h.destination) box.append(el('div', 'Stated destination: ' + h.destination));
+    if (h.draught_m) box.append(el('div', 'Draught: ' + h.draught_m + ' m'));
+    if (p.sog != null) box.append(el('div', 'Speed: ' + p.sog + ' kn'));
+    box.append(el('div', v.flag + ' flag at designation, ' + v.vessel_class.toLowerCase()));
+    L.circleMarker([p.lat, p.lon], {radius: 7, color: '#fff', weight: 1.5, fillColor: c, fillOpacity: 1}).bindPopup(box).addTo(map);
+  }
+  if (bounds.length) map.fitBounds(bounds, {padding: [40, 40], maxZoom: 6});
+})();
+</script>
+</body>
+</html>

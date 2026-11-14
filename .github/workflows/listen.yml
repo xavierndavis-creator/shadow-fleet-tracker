@@ -1,0 +1,42 @@
+name: Listen for watchlist vessels
+
+on:
+  schedule:
+    - cron: "17 */2 * * *"   # every two hours
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: "How long to listen, in seconds"
+        default: "1500"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: listen
+  cancel-in-progress: false
+
+jobs:
+  listen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Listen to aisstream
+        env:
+          AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
+          LISTEN_SECONDS: ${{ github.event.inputs.seconds || '1500' }}
+        run: python scripts/listen.py
+      - name: Save what was heard
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/positions.json
+          git diff --cached --quiet && echo "nothing new" && exit 0
+          git commit -m "Update vessel positions"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push
