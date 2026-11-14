@@ -1,10 +1,19 @@
 {
- "generated": "2026-11-14T06:16:34Z",
+ "generated": "2026-11-14T14:01:39Z",
  "runs": [
   {
    "started": "2026-11-14T05:51:32Z",
    "seconds": 1500,
    "static_messages": 33035,
+   "position_messages": 0,
+   "vessels_heard": 0,
+   "errors": 0
+  },
+  {
+   "started": "2026-11-14T13:36:37Z",
+   "seconds": 1500,
+   "static_messages": 30772,
+   "static_with_imo": 19283,
    "position_messages": 0,
    "vessels_heard": 0,
    "errors": 0
