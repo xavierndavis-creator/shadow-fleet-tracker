@@ -120,6 +120,9 @@ def handle(msg, state, watch, mmsi_to_imo, t=None):
             imo = int(pick(body, "ImoNumber") or 0)
         except (TypeError, ValueError):
             return None
+        if imo > 0:
+            # Diagnostic: proves the feed's IMO field is being read at all.
+            state["_imo_seen"] = state.get("_imo_seen", 0) + 1
         if imo not in watch:
             return None
         rec = state["vessels"].setdefault(str(imo), {})
@@ -230,6 +233,7 @@ async def main():
     state["generated"] = iso(now())
     state["runs"].append({"started": iso(started), "seconds": seconds,
                           "static_messages": c_static["messages"],
+                          "static_with_imo": state.pop("_imo_seen", 0),
                           "position_messages": c_pos["messages"],
                           "vessels_heard": len(heard),
                           "errors": c_static["errors"] + c_pos["errors"]})
