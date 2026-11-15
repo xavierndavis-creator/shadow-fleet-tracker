@@ -148,6 +148,13 @@ def handle(msg, state, watch, mmsi_to_imo, t=None):
         if pos:
             add_point(rec, t, pos, None, "static")
         return imo
+    if kind != "ShipStaticData" and "_pos_sample" not in state:
+        # Diagnostic: keep one raw message from the position feed (public AIS data only).
+        state["_pos_sample"] = json.dumps(msg)[:700]
+    if not pos:
+        pos = valid_pos(pick(body, "Latitude"), pick(body, "Longitude"))
+    if mmsi is None:
+        mmsi = pick(body, "UserID")
     if mmsi is not None and int(mmsi) in mmsi_to_imo and pos:
         imo = mmsi_to_imo[int(mmsi)]
         rec = state["vessels"].setdefault(str(imo), {})
@@ -240,6 +247,7 @@ async def main():
     state["runs"].append({"started": iso(started), "seconds": seconds,
                           "static_messages": c_static["messages"],
                           "static_with_imo": state.pop("_imo_seen", 0),
+                          "position_sample": state.pop("_pos_sample", None),
                           "position_messages": c_pos["messages"],
                           "vessels_heard": len(heard),
                           "errors": c_static["errors"] + c_pos["errors"]})
