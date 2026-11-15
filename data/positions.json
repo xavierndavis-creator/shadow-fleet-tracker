@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-15T07:54:28Z",
+ "generated": "2026-11-15T16:07:08Z",
  "runs": [
   {
    "started": "2026-11-14T05:51:32Z",
@@ -61,6 +61,16 @@
    "static_with_imo": 6070,
    "position_sample": "{\"Message\": {\"CompressionEnabled\": true}, \"MessageType\": \"SubscriptionConfirmation\"}",
    "position_messages": 1,
+   "vessels_heard": 0,
+   "errors": 0
+  },
+  {
+   "started": "2026-11-15T15:42:06Z",
+   "seconds": 1500,
+   "static_messages": 31634,
+   "static_with_imo": 19825,
+   "position_sample": null,
+   "position_messages": 0,
    "vessels_heard": 0,
    "errors": 0
   }
