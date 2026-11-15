@@ -197,6 +197,12 @@ async def main():
         if int(imo) in watch:
             for m in rec.get("mmsi_seen", []):
                 mmsi_to_imo[int(m)] = int(imo)
+    seed_file = ROOT / "data" / "mmsi_seed.json"
+    if seed_file.exists():
+        for imo, entry in json.loads(seed_file.read_text()).items():
+            if imo.isdigit() and int(imo) in watch:
+                for m in entry.get("mmsi", []):
+                    mmsi_to_imo[int(m)] = int(imo)
     started = now()
     deadline = started + dt.timedelta(seconds=seconds)
     heard = set()
