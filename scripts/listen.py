@@ -182,6 +182,8 @@ async def stream(sub, on_msg, deadline, counter, stop=None):
                         print("feed error:", str(data)[:200], file=sys.stderr)
                         counter["errors"] += 1
                         break
+                    if data.get("MessageType") == "SubscriptionConfirmation":
+                        continue
                     counter["messages"] += 1
                     on_msg(data)
         except Exception as e:  # network drops are routine: reconnect
