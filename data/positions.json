@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-21T03:40:32Z",
+ "generated": "2026-11-21T13:08:17Z",
  "runs": [
   {
    "started": "2026-11-14T05:51:32Z",
@@ -229,6 +229,16 @@
    "seconds": 1500,
    "static_messages": 30340,
    "static_with_imo": 17761,
+   "position_sample": null,
+   "position_messages": 0,
+   "vessels_heard": 0,
+   "errors": 0
+  },
+  {
+   "started": "2026-11-21T12:43:14Z",
+   "seconds": 1500,
+   "static_messages": 29910,
+   "static_with_imo": 18554,
    "position_sample": null,
    "position_messages": 0,
    "vessels_heard": 0,
